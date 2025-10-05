@@ -11,6 +11,12 @@ class BaseModel(Base):
         Integer, primary_key=True, autoincrement=True, index=True, unique=True
     )
 
+    def __repr__(self) -> str:
+        return f"<{self.__class__.__name__}(id={self.id})>"
+
+    def __str__(self) -> str:
+        return f"{self.__class__.__name__}(id={self.id})"
+
 
 class TimestampMixin:
     __abstract__ = True

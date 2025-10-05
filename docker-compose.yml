@@ -1,4 +1,23 @@
 services:
+  redis:
+    image: redis:8.2-alpine
+    command: redis-server --requirepass redis
+    env_file:
+      - ./.env
+    networks:
+      - app-network
+    volumes:
+      - redis-data:/data
+    ports:
+      - "6379:6379"
+    restart: on-failure
+    healthcheck:
+      test: [ "CMD", "redis-cli", "--raw", "incr", "ping" ]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 20s
+
   postgres:
     image: postgres:17.6-alpine
     env_file:
@@ -30,6 +49,27 @@ services:
       retries: 5
       start_period: 30s
 
+  celery:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: on-failure
+    command: celery -A app.api.celery_worker.app worker --loglevel=info
+    depends_on:
+      redis:
+        condition: service_healthy
+    env_file:
+      - ./.env
+    volumes:
+      - .:/app
+    networks:
+      - app-network
+    healthcheck:
+      test: [ "CMD-SHELL", "celery -A app.api.celery_worker.app inspect ping || exit 1" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
 
   api:
     build:
@@ -39,6 +79,8 @@ services:
       - "8000:8000"
     depends_on:
       - postgres
+      - redis
+      - celery
     volumes:
       - .:/app
       - ./media:/app/media
@@ -48,6 +90,7 @@ services:
 volumes:
   postgres-data:
   test-postgres-data:
+  redis-data:
 
 networks:
   app-network:
